@@ -148,16 +148,28 @@ class ArretesScraper:
                     if poids_match:
                         metadata['poids_pdf_ko'] = poids_match.group(1)
 
-                # Chercher l'explnum_id dans les liens
-                if current.name == 'a' or current.find('a'):
-                    links = [current] if current.name == 'a' else current.find_all('a')
-                    for link in links:
-                        onclick = link.get('onclick', '')
-                        if 'sendToVisionneuse' in onclick:
-                            explnum_match = re.search(r'sendToVisionneuse\((\d+)\)', onclick)
-                            if explnum_match:
-                                metadata['explnum_id'] = explnum_match.group(1)
-                                break
+                # Chercher l'explnum_id dans les images (vig_num.php?explnum_id=XXX)
+                # L'explnum_id est dans le src des images, pas dans les onclick
+                if current.name == 'img':
+                    src = current.get('src', '')
+                    if 'explnum_id=' in src:
+                        explnum_match = re.search(r'explnum_id=(\d+)', src)
+                        if explnum_match:
+                            metadata['explnum_id'] = explnum_match.group(1)
+                            break
+
+                # Chercher aussi dans les images enfants de l'élément actuel
+                img_tags = current.find_all('img') if hasattr(current, 'find_all') else []
+                for img in img_tags:
+                    src = img.get('src', '')
+                    if 'explnum_id=' in src:
+                        explnum_match = re.search(r'explnum_id=(\d+)', src)
+                        if explnum_match:
+                            metadata['explnum_id'] = explnum_match.group(1)
+                            break
+
+                if metadata['explnum_id']:
+                    break
 
             if not metadata['explnum_id']:
                 logger.warning(f"Pas d'explnum_id trouvé pour {numero_arrete}")

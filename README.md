@@ -118,6 +118,38 @@ Dans votre repository GitHub, aller dans `Settings > Secrets and variables > Act
 
 **Note pour MinIO** : Le scraper supporte nativement MinIO et autres services compatibles S3. Il suffit de spécifier votre endpoint dans `S3_ENDPOINT_URL`. Consultez [MINIO_SETUP.md](MINIO_SETUP.md) pour un guide complet de configuration MinIO.
 
+## 🧪 Test Local
+
+Pour tester rapidement le scraper sur votre machine :
+
+```bash
+# En mode DRY_RUN (sans upload S3 - pas besoin de credentials)
+export DRY_RUN=true
+export MAX_PAGES_TO_SCRAPE=2  # Limiter à 2 pages
+python run_local.py
+```
+
+Le script `run_local.py` :
+- ✅ Vérifie la configuration
+- ✅ Limite automatiquement à 2 pages en mode test
+- ✅ Affiche des messages d'aide clairs
+- ✅ Sauvegarde le HTML dans `data/debug_page_*.html` pour debug
+- ✅ Génère le CSV avec les métadonnées
+
+**Script de debug HTML** :
+
+Pour analyser la structure HTML du site en détail :
+
+```bash
+python test_local.py
+```
+
+Ce script :
+- Récupère la première page de résultats
+- Sauvegarde le HTML dans `debug_local.html`
+- Analyse les h3, siblings et recherche les `explnum_id`
+- Affiche un rapport détaillé dans la console
+
 ## 💻 Utilisation
 
 > 📖 **Guide complet de test** : Consultez [TESTING.md](TESTING.md) pour un guide détaillé des différentes méthodes de test
