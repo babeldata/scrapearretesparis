@@ -48,6 +48,7 @@ jobs:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
           PLAYWRIGHT_BROWSER: firefox
+          FILTER_TYPE: all  # Options: all, circulation, stationnement
           SCRAPE_DELAY_SECONDS: 2
           MAX_CONCURRENT_PAGES: 5
           MAX_PAGES_TO_SCRAPE: 0  # 0 = toutes les pages
