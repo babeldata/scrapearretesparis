@@ -372,10 +372,16 @@ class ArretesScraper:
                 # Créer une première page
                 page = await context.new_page()
 
-                # Écouter les erreurs réseau pour debug
-                page.on('requestfailed', lambda request: logger.warning(
-                    f"Requête échouée: {request.url} - {request.failure}"
-                ))
+                # Écouter les erreurs réseau pour debug (ignorer AJAX non critiques)
+                def log_request_failure(request):
+                    url = request.url
+                    # Ignorer les erreurs AJAX normales (facettes, compteurs, etc.)
+                    if 'ajax.php' in url or 'cart_info.php' in url:
+                        return  # Ces requêtes AJAX sont souvent annulées, c'est normal
+                    # Logger uniquement les vraies erreurs (pages, PDFs)
+                    logger.warning(f"Requête échouée: {url} - {request.failure}")
+
+                page.on('requestfailed', log_request_failure)
 
                 # Navigation préalable vers la page d'accueil pour établir une session
                 logger.info("Établissement de la session sur la page d'accueil...")
