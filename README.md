@@ -69,12 +69,22 @@ MAX_PAGES_TO_SCRAPE=0  # 0 = toutes les pages
 
 ### 4. Configurer GitHub Secrets (pour l'automatisation)
 
-Dans votre repository GitHub, aller dans `Settings > Secrets and variables > Actions` et ajouter :
+**Option A - Secrets au niveau du repository (recommandé pour débuter)** :
+
+Dans votre repository GitHub, aller dans `Settings > Secrets and variables > Actions > Repository secrets` et ajouter :
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
 - `S3_BUCKET_NAME`
+
+**Option B - Créer un Environment (recommandé pour la production)** :
+
+1. Dans votre repository : `Settings > Environments > New environment`
+2. Nommez-le `production`
+3. Ajoutez les mêmes secrets dans cet environnement
+4. Dans `.github/workflows/daily_scrape.yml`, décommentez la ligne `# environment: production`
+5. (Optionnel) Configurez des protections : approbation manuelle, restrictions de branches, etc.
 
 ## 💻 Utilisation
 

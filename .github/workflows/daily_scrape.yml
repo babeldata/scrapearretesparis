@@ -11,6 +11,8 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    # OPTION 2: Décommentez la ligne suivante si vous créez un environment "production"
+    # environment: production
 
     steps:
       - name: Checkout repository
