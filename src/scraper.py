@@ -22,7 +22,10 @@ from config import (
     DATA_DIR,
     PAGE_LOAD_TIMEOUT,
     PDF_DOWNLOAD_TIMEOUT,
-    validate_config
+    FILTER_TYPE,
+    validate_config,
+    classify_arrete,
+    should_keep_arrete
 )
 from s3_uploader import S3Uploader
 
@@ -102,6 +105,16 @@ class ArretesScraper:
                 logger.debug(f"Arrêté {numero_arrete} déjà présent, ignoré")
                 return None
 
+            # Classifier l'arrêté selon son titre
+            classification = classify_arrete(titre)
+
+            # Vérifier si on doit garder cet arrêté selon le filtre
+            if not should_keep_arrete(classification):
+                logger.debug(f"Arrêté {numero_arrete} filtré (FILTER_TYPE={FILTER_TYPE}, "
+                           f"circulation={classification['concerne_circulation']}, "
+                           f"stationnement={classification['concerne_stationnement']})")
+                return None
+
             # Extraire les autres métadonnées
             metadata = {
                 'numero_arrete': numero_arrete,
@@ -111,6 +124,9 @@ class ArretesScraper:
                 'date_publication': '',
                 'date_signature': '',
                 'poids_pdf_ko': '',
+                'concerne_circulation': classification['concerne_circulation'],
+                'concerne_stationnement': classification['concerne_stationnement'],
+                'est_temporaire': classification['est_temporaire'],
                 'explnum_id': '',
                 'pdf_s3_url': '',
                 'date_scrape': datetime.now().isoformat()
@@ -305,6 +321,7 @@ class ArretesScraper:
         try:
             logger.info("=== Démarrage du scraper d'arrêtés ===")
             validate_config()
+            logger.info(f"Filtre actif: FILTER_TYPE={FILTER_TYPE}")
 
             async with async_playwright() as p:
                 # Lancer le navigateur
