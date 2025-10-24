@@ -10,7 +10,7 @@ on:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Ubuntu 22.04 pour compatibilité Playwright
     # OPTION 2: Décommentez la ligne suivante si vous créez un environment "production"
     # environment: production
 

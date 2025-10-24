@@ -197,6 +197,21 @@ python scraper.py
 - Allez dans `Settings > Secrets > Actions`
 - Ajoutez au minimum les 5 secrets (même avec des valeurs dummy en mode DRY_RUN)
 
+### Erreur Playwright : "Package 'libasound2' has no installation candidate"
+
+**Cause** : Incompatibilité entre Playwright et Ubuntu 24.04 (ubuntu-latest)
+
+**Solution** : Ce problème est déjà corrigé dans les workflows (on utilise `ubuntu-22.04`)
+
+Si vous rencontrez cette erreur sur vos propres workflows :
+```yaml
+jobs:
+  scrape:
+    runs-on: ubuntu-22.04  # ← Changer de ubuntu-latest à ubuntu-22.04
+```
+
+**Explication** : Playwright n'est pas encore totalement compatible avec Ubuntu 24.04. Les paquets système `libasound2`, `libffi7` et `libx264-163` ont été renommés ou supprimés dans cette version.
+
 ### TimeoutError sur le téléchargement PDF
 
 **Cause** : Le site BOVP est lent ou le PDF n'est pas accessible

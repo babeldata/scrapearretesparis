@@ -22,7 +22,7 @@ on:
 
 jobs:
   test-scrape:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Ubuntu 22.04 pour compatibilité Playwright
     # Décommentez si vous utilisez un environment de test
     # environment: staging
 
