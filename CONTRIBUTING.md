@@ -26,8 +26,14 @@ Ouvrez une issue ou une pull request avec :
 git clone https://github.com/VOTRE_USERNAME/scrapearretesparis.git
 cd scrapearretesparis
 
-# Installer les dépendances
-pip install -r requirements.txt
+# Installer uv (recommandé pour la vitesse)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Installer les dépendances système (Linux)
+sudo apt-get install -y libxml2-dev libxslt-dev
+
+# Installer les dépendances Python avec uv (ou pip)
+uv pip install --system -r requirements.txt
 playwright install chromium
 
 # Créer un fichier .env pour les tests

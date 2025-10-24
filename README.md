@@ -39,8 +39,32 @@ cd scrapearretesparis
 
 ### 2. Installer les dépendances
 
+**Option A - Avec uv (recommandé, 10-100x plus rapide)** :
+
 ```bash
+# Installer uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Installer les dépendances système (Linux)
+sudo apt-get install -y libxml2-dev libxslt-dev
+
+# Installer les dépendances Python
+uv pip install --system -r requirements.txt
+
+# Installer les navigateurs Playwright
+playwright install chromium
+```
+
+**Option B - Avec pip (méthode classique)** :
+
+```bash
+# Installer les dépendances système (Linux)
+sudo apt-get install -y libxml2-dev libxslt-dev
+
+# Installer les dépendances Python
 pip install -r requirements.txt
+
+# Installer les navigateurs Playwright
 playwright install chromium
 ```
 
@@ -213,6 +237,7 @@ Les logs sont disponibles :
 ## 🔧 Dépendances
 
 - **Python 3.11+**
+- **uv** : Gestionnaire de paquets ultra-rapide (recommandé) - [Pourquoi uv ?](docs/UV.md)
 - **Playwright** : Navigateur headless pour JavaScript
 - **BeautifulSoup4** : Parsing HTML
 - **Pandas** : Gestion CSV
