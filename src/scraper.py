@@ -285,8 +285,35 @@ class ArretesScraper:
             content = await page.content()
             soup = BeautifulSoup(content, 'lxml')
 
-            # Trouver tous les résultats
+            # Debug: sauvegarder le HTML pour analyse
+            if page_num == 1:
+                debug_file = DATA_DIR / f"debug_page_{page_num}.html"
+                with open(debug_file, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                logger.info(f"HTML sauvegardé dans {debug_file} pour debug")
+
+            # Trouver tous les résultats - chercher plusieurs classes possibles
             results = soup.find_all('div', class_='list_result_line')
+
+            # Si aucun résultat avec list_result_line, essayer d'autres sélecteurs
+            if not results:
+                logger.warning("Aucun résultat avec class='list_result_line', tentative d'autres sélecteurs...")
+
+                # Essayer d'autres classes communes dans PMB
+                alternative_classes = ['notice', 'record', 'result_item', 'search_result']
+                for alt_class in alternative_classes:
+                    results = soup.find_all('div', class_=alt_class)
+                    if results:
+                        logger.info(f"Trouvé {len(results)} résultats avec class='{alt_class}'")
+                        break
+
+                # Si toujours rien, chercher tous les éléments contenant "Arrêté n°"
+                if not results:
+                    logger.warning("Aucune classe standard trouvée, recherche par contenu...")
+                    all_divs = soup.find_all('div')
+                    results = [div for div in all_divs if div.find(string=lambda t: t and 'Arrêté n°' in t)]
+                    logger.info(f"Trouvé {len(results)} divs contenant 'Arrêté n°'")
+
             logger.info(f"Page {page_num}: {len(results)} résultats trouvés")
 
             arretes_metadata = []
