@@ -82,16 +82,14 @@ class ArretesScraper:
         # La première page est à page=1
         return f"{SEARCH_URL}&page={page_num}&nb_per_page={RESULTS_PER_PAGE}"
 
-    async def _parse_arrete_from_element(self, element_html: str) -> Optional[Dict]:
-        """Parse les métadonnées d'un arrêté depuis son HTML."""
+    async def _parse_arrete_from_h3(self, h3_element) -> Optional[Dict]:
+        """
+        Parse les métadonnées d'un arrêté depuis un élément <h3>.
+        Le site BOVP n'utilise pas de divs conteneurs, on doit parcourir les siblings.
+        """
         try:
-            soup = BeautifulSoup(element_html, 'lxml')
-
-            # Extraire le titre
-            titre_elem = soup.find('div', class_='list_result_title')
-            if not titre_elem:
-                return None
-            titre = titre_elem.get_text(strip=True)
+            # Extraire le titre depuis le <h3>
+            titre = h3_element.get_text(strip=True)
 
             # Extraire le numéro d'arrêté
             numero_arrete = self._extract_numero_arrete(titre)
@@ -118,30 +116,48 @@ class ArretesScraper:
                 'date_scrape': datetime.now().isoformat()
             }
 
-            # Chercher les métadonnées dans les divs
-            for div in soup.find_all('div'):
-                text = div.get_text(strip=True)
+            # Parcourir tous les siblings suivants du h3 pour trouver les métadonnées
+            # On cherche dans un rayon limité (les 20 prochains éléments)
+            current = h3_element
+            elements_checked = 0
+            max_elements = 20
 
-                if 'Autorité responsable :' in text:
-                    metadata['autorite_responsable'] = text.replace('Autorité responsable :', '').strip()
-                elif 'Signataire :' in text:
-                    metadata['signataire'] = text.replace('Signataire :', '').strip()
-                elif 'Date de publication :' in text:
-                    metadata['date_publication'] = text.replace('Date de publication :', '').strip()
-                elif 'Date de signature :' in text:
-                    metadata['date_signature'] = text.replace('Date de signature :', '').strip()
-                elif 'Poids :' in text and 'Ko' in text:
+            while current and elements_checked < max_elements:
+                current = current.find_next_sibling()
+                if not current:
+                    break
+
+                elements_checked += 1
+                text = current.get_text(strip=True) if hasattr(current, 'get_text') else str(current)
+
+                # Arrêter si on trouve un nouveau h3 (début du résultat suivant)
+                if current.name == 'h3' and 'Arrêté n°' in text:
+                    break
+
+                # Extraire les métadonnées
+                if 'Autorité responsable' in text or 'Autorité:' in text:
+                    metadata['autorite_responsable'] = re.sub(r'Autorité\s*(responsable)?\s*:?\s*', '', text).strip()
+                elif 'Signataire' in text:
+                    metadata['signataire'] = re.sub(r'Signataire\s*:?\s*', '', text).strip()
+                elif 'Date de publication' in text:
+                    metadata['date_publication'] = re.sub(r'Date de publication\s*:?\s*', '', text).strip()
+                elif 'Date de signature' in text:
+                    metadata['date_signature'] = re.sub(r'Date de signature\s*:?\s*', '', text).strip()
+                elif 'Poids' in text and 'Ko' in text:
                     poids_match = re.search(r'(\d+)\s*Ko', text)
                     if poids_match:
                         metadata['poids_pdf_ko'] = poids_match.group(1)
 
-            # Extraire l'explnum_id depuis le bouton "Document numérique"
-            doc_link = soup.find('a', href=re.compile(r'sendToVisionneuse'))
-            if doc_link:
-                onclick = doc_link.get('onclick', '')
-                explnum_match = re.search(r'sendToVisionneuse\((\d+)\)', onclick)
-                if explnum_match:
-                    metadata['explnum_id'] = explnum_match.group(1)
+                # Chercher l'explnum_id dans les liens
+                if current.name == 'a' or current.find('a'):
+                    links = [current] if current.name == 'a' else current.find_all('a')
+                    for link in links:
+                        onclick = link.get('onclick', '')
+                        if 'sendToVisionneuse' in onclick:
+                            explnum_match = re.search(r'sendToVisionneuse\((\d+)\)', onclick)
+                            if explnum_match:
+                                metadata['explnum_id'] = explnum_match.group(1)
+                                break
 
             if not metadata['explnum_id']:
                 logger.warning(f"Pas d'explnum_id trouvé pour {numero_arrete}")
@@ -292,33 +308,16 @@ class ArretesScraper:
                     f.write(content)
                 logger.info(f"HTML sauvegardé dans {debug_file} pour debug")
 
-            # Trouver tous les résultats - chercher plusieurs classes possibles
-            results = soup.find_all('div', class_='list_result_line')
+            # Le site BOVP n'utilise pas de divs conteneurs avec classes CSS
+            # Les résultats sont identifiés par des <h3> contenant "Arrêté n°"
+            h3_elements = soup.find_all('h3')
+            arrete_h3s = [h3 for h3 in h3_elements if h3.get_text() and 'Arrêté n°' in h3.get_text()]
 
-            # Si aucun résultat avec list_result_line, essayer d'autres sélecteurs
-            if not results:
-                logger.warning("Aucun résultat avec class='list_result_line', tentative d'autres sélecteurs...")
-
-                # Essayer d'autres classes communes dans PMB
-                alternative_classes = ['notice', 'record', 'result_item', 'search_result']
-                for alt_class in alternative_classes:
-                    results = soup.find_all('div', class_=alt_class)
-                    if results:
-                        logger.info(f"Trouvé {len(results)} résultats avec class='{alt_class}'")
-                        break
-
-                # Si toujours rien, chercher tous les éléments contenant "Arrêté n°"
-                if not results:
-                    logger.warning("Aucune classe standard trouvée, recherche par contenu...")
-                    all_divs = soup.find_all('div')
-                    results = [div for div in all_divs if div.find(string=lambda t: t and 'Arrêté n°' in t)]
-                    logger.info(f"Trouvé {len(results)} divs contenant 'Arrêté n°'")
-
-            logger.info(f"Page {page_num}: {len(results)} résultats trouvés")
+            logger.info(f"Page {page_num}: {len(arrete_h3s)} résultats trouvés (via <h3> 'Arrêté n°')")
 
             arretes_metadata = []
-            for result in results:
-                metadata = await self._parse_arrete_from_element(str(result))
+            for h3 in arrete_h3s:
+                metadata = await self._parse_arrete_from_h3(h3)
                 if metadata:
                     arretes_metadata.append(metadata)
 
