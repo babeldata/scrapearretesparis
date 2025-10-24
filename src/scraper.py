@@ -129,60 +129,44 @@ class ArretesScraper:
                         logger.debug(f"✓ explnum_id trouvé dans h3: {metadata['explnum_id']}")
                         break
 
-            # Parcourir tous les siblings suivants du h3 pour trouver les métadonnées
-            # On cherche dans un rayon limité (les 20 prochains éléments)
-            current = h3_element
-            elements_checked = 0
-            max_elements = 20
+            # Les métadonnées ne sont pas siblings directs du h3, mais dans le conteneur parent
+            # Remonter au conteneur parent (div.descr_notice_corps ou div.notice_corps)
+            parent = h3_element.parent
+            while parent:
+                if parent.name == 'div':
+                    classes = parent.get('class', [])
+                    if 'descr_notice_corps' in classes or 'notice_corps' in classes:
+                        break
+                parent = parent.parent
 
-            while current and elements_checked < max_elements:
-                current = current.find_next_sibling()
-                if not current:
-                    break
+            # Si on a trouvé le bon parent, chercher dans ses descendants
+            if parent:
+                # 1. Chercher autorité responsable et signataire dans <span class="auteur_notCourte">
+                auteur_spans = parent.find_all('span', class_='auteur_notCourte')
+                if auteur_spans and len(auteur_spans) >= 1:
+                    # Le premier span est l'autorité responsable
+                    metadata['autorite_responsable'] = auteur_spans[0].get_text(strip=True).replace('\xa0', ' ')
+                    # Le second span (si présent) est le signataire
+                    if len(auteur_spans) >= 2:
+                        metadata['signataire'] = auteur_spans[1].get_text(strip=True).replace('\xa0', ' ')
 
-                elements_checked += 1
-                text = current.get_text(strip=True) if hasattr(current, 'get_text') else str(current)
+                # 2. Chercher les dates et poids dans <table class="descr_notice">
+                table = parent.find('table', class_='descr_notice')
+                if table:
+                    rows = table.find_all('tr', class_='record_p_perso')
+                    for row in rows:
+                        label = row.find('td', class_='labelNot')
+                        content = row.find('td', class_='labelContent')
+                        if label and content:
+                            label_text = label.get_text(strip=True)
+                            content_text = content.get_text(strip=True)
 
-                # Arrêter si on trouve un nouveau h3 (début du résultat suivant)
-                if current.name == 'h3' and 'Arrêté n°' in text:
-                    break
-
-                # Extraire les métadonnées
-                if 'Autorité responsable' in text or 'Autorité:' in text:
-                    metadata['autorite_responsable'] = re.sub(r'Autorité\s*(responsable)?\s*:?\s*', '', text).strip()
-                elif 'Signataire' in text:
-                    metadata['signataire'] = re.sub(r'Signataire\s*:?\s*', '', text).strip()
-                elif 'Date de publication' in text:
-                    metadata['date_publication'] = re.sub(r'Date de publication\s*:?\s*', '', text).strip()
-                elif 'Date de signature' in text:
-                    metadata['date_signature'] = re.sub(r'Date de signature\s*:?\s*', '', text).strip()
-                elif 'Poids' in text and 'Ko' in text:
-                    poids_match = re.search(r'(\d+)\s*Ko', text)
-                    if poids_match:
-                        metadata['poids_pdf_ko'] = poids_match.group(1)
-
-                # Chercher l'explnum_id dans les images (vig_num.php?explnum_id=XXX)
-                # L'explnum_id est dans le src des images, pas dans les onclick
-                if current.name == 'img':
-                    src = current.get('src', '')
-                    if 'explnum_id=' in src:
-                        explnum_match = re.search(r'explnum_id=(\d+)', src)
-                        if explnum_match:
-                            metadata['explnum_id'] = explnum_match.group(1)
-                            break
-
-                # Chercher aussi dans les images enfants de l'élément actuel
-                img_tags = current.find_all('img') if hasattr(current, 'find_all') else []
-                for img in img_tags:
-                    src = img.get('src', '')
-                    if 'explnum_id=' in src:
-                        explnum_match = re.search(r'explnum_id=(\d+)', src)
-                        if explnum_match:
-                            metadata['explnum_id'] = explnum_match.group(1)
-                            break
-
-                if metadata['explnum_id']:
-                    break
+                            if 'Date de publication' in label_text:
+                                metadata['date_publication'] = content_text
+                            elif 'Date de la signature' in label_text or 'Date de signature' in label_text:
+                                metadata['date_signature'] = content_text
+                            elif 'Poids' in label_text:
+                                metadata['poids_pdf_ko'] = content_text
 
             if not metadata['explnum_id']:
                 logger.warning(f"Pas d'explnum_id trouvé pour {numero_arrete}")
