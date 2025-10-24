@@ -116,6 +116,19 @@ class ArretesScraper:
                 'date_scrape': datetime.now().isoformat()
             }
 
+            # D'abord chercher l'explnum_id dans le h3 lui-même
+            # Pattern: open_visionneuse(sendToVisionneuse,44443)
+            h3_links = h3_element.find_all('a')
+            for link in h3_links:
+                onclick = link.get('onclick', '')
+                if 'open_visionneuse' in onclick or 'sendToVisionneuse' in onclick:
+                    # Chercher le nombre après sendToVisionneuse,
+                    explnum_match = re.search(r'sendToVisionneuse,(\d+)', onclick)
+                    if explnum_match:
+                        metadata['explnum_id'] = explnum_match.group(1)
+                        logger.debug(f"✓ explnum_id trouvé dans h3: {metadata['explnum_id']}")
+                        break
+
             # Parcourir tous les siblings suivants du h3 pour trouver les métadonnées
             # On cherche dans un rayon limité (les 20 prochains éléments)
             current = h3_element
@@ -195,7 +208,7 @@ class ArretesScraper:
 
             # Attendre le téléchargement du PDF
             async with page.expect_download(timeout=PDF_DOWNLOAD_TIMEOUT) as download_info:
-                await page.goto(viewer_url, wait_until='networkidle', timeout=PDF_DOWNLOAD_TIMEOUT)
+                await page.goto(viewer_url, wait_until='domcontentloaded', timeout=PDF_DOWNLOAD_TIMEOUT)
 
                 # Chercher un lien de téléchargement ou un iframe contenant le PDF
                 # Option 1: Chercher un bouton/lien de téléchargement
@@ -223,7 +236,7 @@ class ArretesScraper:
             # Si pas de téléchargement automatique, essayer une approche différente
             try:
                 # Chercher toutes les requêtes réseau pour des PDFs
-                await page.goto(viewer_url, wait_until='networkidle', timeout=PDF_DOWNLOAD_TIMEOUT)
+                await page.goto(viewer_url, wait_until='domcontentloaded', timeout=PDF_DOWNLOAD_TIMEOUT)
                 await asyncio.sleep(2)  # Attendre que la page charge complètement
 
                 # Essayer de trouver le PDF dans le contenu de la page
@@ -306,7 +319,7 @@ class ArretesScraper:
             url = await self._get_search_page_url(page_num)
             logger.info(f"Scraping de la page {page_num}: {url}")
 
-            await page.goto(url, wait_until='networkidle', timeout=PAGE_LOAD_TIMEOUT)
+            await page.goto(url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
             await asyncio.sleep(SCRAPE_DELAY_SECONDS)
 
             # Parser le HTML
@@ -349,12 +362,69 @@ class ArretesScraper:
             async with async_playwright() as p:
                 # Lancer le navigateur
                 logger.info("Lancement du navigateur...")
-                self.browser = await p.chromium.launch(headless=True)
-                context = await self.browser.new_context()
 
-                # Créer une première page pour déterminer le nombre total de pages
+                # Mode headless ou non (pour debug)
+                import os
+                headless = os.getenv('PLAYWRIGHT_HEADLESS', 'true').lower() != 'false'
+                browser_type = os.getenv('PLAYWRIGHT_BROWSER', 'chromium').lower()
+                logger.info(f"Mode headless: {headless}, Navigateur: {browser_type}")
+
+                # Sélectionner le navigateur
+                if browser_type == 'firefox':
+                    browser_engine = p.firefox
+                    launch_kwargs = {'headless': headless}
+                elif browser_type == 'webkit':
+                    browser_engine = p.webkit
+                    launch_kwargs = {'headless': headless}
+                else:  # chromium par défaut
+                    browser_engine = p.chromium
+                    # Arguments du navigateur pour stabilité et anti-détection
+                    launch_kwargs = {
+                        'headless': headless,
+                        'args': [
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-blink-features=AutomationControlled',
+                        ]
+                    }
+
+                self.browser = await browser_engine.launch(**launch_kwargs)
+
+                # Configurer le contexte pour ressembler à un vrai navigateur
+                context = await self.browser.new_context(
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    viewport={'width': 1920, 'height': 1080},
+                    locale='fr-FR',
+                    timezone_id='Europe/Paris',
+                    extra_http_headers={
+                        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                    }
+                )
+
+                # Créer une première page
                 page = await context.new_page()
-                await page.goto(await self._get_search_page_url(1), wait_until='networkidle', timeout=PAGE_LOAD_TIMEOUT)
+
+                # Écouter les erreurs réseau pour debug
+                page.on('requestfailed', lambda request: logger.warning(
+                    f"Requête échouée: {request.url} - {request.failure}"
+                ))
+
+                # Navigation préalable vers la page d'accueil pour établir une session
+                logger.info("Établissement de la session sur la page d'accueil...")
+                try:
+                    await page.goto(BASE_URL, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
+                    await asyncio.sleep(2)  # Laisser le temps au site de charger complètement
+                    logger.info("✓ Session établie")
+                except Exception as e:
+                    logger.warning(f"Impossible d'accéder à la page d'accueil: {e}")
+
+                # Maintenant naviguer vers la page de résultats
+                logger.info(f"Navigation vers la page de résultats...")
+                await page.goto(await self._get_search_page_url(1), wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
                 content = await page.content()
                 soup = BeautifulSoup(content, 'lxml')
 

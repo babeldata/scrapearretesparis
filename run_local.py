@@ -35,8 +35,13 @@ async def main():
     print(f"  - DRY_RUN: {os.getenv('DRY_RUN', 'false')}")
     print(f"  - MAX_PAGES_TO_SCRAPE: {os.getenv('MAX_PAGES_TO_SCRAPE', '0')} (0 = toutes)")
     print(f"  - S3_ENDPOINT_URL: {os.getenv('S3_ENDPOINT_URL', 'AWS S3 standard')}")
+    print(f"  - PLAYWRIGHT_HEADLESS: {os.getenv('PLAYWRIGHT_HEADLESS', 'true')}")
     print(f"  - Data directory: {DATA_DIR}")
     print()
+
+    if os.getenv('PLAYWRIGHT_HEADLESS', 'true').lower() == 'false':
+        print("🔍 Mode DEBUG visuel activé - le navigateur va s'ouvrir")
+        print("   Pour désactiver: unset PLAYWRIGHT_HEADLESS\n")
 
     # Limiter à 2 pages en test local par défaut
     if not os.getenv('MAX_PAGES_TO_SCRAPE'):
