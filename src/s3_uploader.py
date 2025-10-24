@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 import hashlib
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 from config import (
     AWS_ACCESS_KEY_ID,
@@ -38,7 +39,14 @@ class S3Uploader:
             # Ajouter l'endpoint_url si spécifié (pour MinIO ou S3 compatible)
             if self.endpoint_url:
                 client_config['endpoint_url'] = self.endpoint_url
-                logger.info(f"Utilisation de l'endpoint S3 personnalisé: {self.endpoint_url}")
+                # Configuration spéciale pour MinIO :
+                # - signature V4 obligatoire
+                # - path-style addressing (pas de virtual-hosted style)
+                client_config['config'] = Config(
+                    signature_version='s3v4',
+                    s3={'addressing_style': 'path'}
+                )
+                logger.info(f"Utilisation de l'endpoint S3 personnalisé (MinIO): {self.endpoint_url}")
             else:
                 logger.info("Utilisation d'AWS S3")
 
@@ -80,15 +88,12 @@ class S3Uploader:
                 return self._get_s3_url(s3_key)
 
             # Upload vers S3
+            # Note: Pas de Metadata personnalisée pour compatibilité MinIO
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
                 Body=pdf_content,
-                ContentType='application/pdf',
-                Metadata={
-                    'numero_arrete': numero_arrete,
-                    'content_hash': content_hash
-                }
+                ContentType='application/pdf'
             )
 
             logger.info(f"PDF uploadé avec succès: {s3_key}")
