@@ -316,7 +316,7 @@ class ArretesScraper:
 
                 # Créer une première page pour déterminer le nombre total de pages
                 page = await context.new_page()
-                await page.goto(await self._get_search_page_url(1), wait_until='networkidle')
+                await page.goto(await self._get_search_page_url(1), wait_until='networkidle', timeout=PAGE_LOAD_TIMEOUT)
                 content = await page.content()
                 soup = BeautifulSoup(content, 'lxml')
 
