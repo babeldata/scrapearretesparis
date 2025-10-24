@@ -10,7 +10,7 @@ on:
         default: '1'
         type: string
       dry_run:
-        description: 'Mode DRY_RUN (pas d\'upload S3 réel)'
+        description: "Mode DRY_RUN (pas d'upload S3 réel)"
         required: false
         default: true
         type: boolean
