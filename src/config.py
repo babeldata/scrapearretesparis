@@ -28,6 +28,10 @@ MAX_CONCURRENT_PAGES = int(os.getenv("MAX_CONCURRENT_PAGES", "5"))
 MAX_PAGES_TO_SCRAPE = int(os.getenv("MAX_PAGES_TO_SCRAPE", "0"))  # 0 = toutes
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() in ("true", "1", "yes")
 
+# Timeouts Playwright (en millisecondes)
+PAGE_LOAD_TIMEOUT = int(os.getenv("PAGE_LOAD_TIMEOUT", "90000"))  # 90 secondes pour charger une page
+PDF_DOWNLOAD_TIMEOUT = int(os.getenv("PDF_DOWNLOAD_TIMEOUT", "60000"))  # 60 secondes pour télécharger un PDF
+
 # Pagination
 RESULTS_PER_PAGE = 50  # Compromis entre vitesse et nombre de requêtes
 

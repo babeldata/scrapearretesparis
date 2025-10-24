@@ -50,6 +50,8 @@ jobs:
           SCRAPE_DELAY_SECONDS: 2
           MAX_CONCURRENT_PAGES: 5
           MAX_PAGES_TO_SCRAPE: 0  # 0 = toutes les pages
+          PAGE_LOAD_TIMEOUT: 90000
+          PDF_DOWNLOAD_TIMEOUT: 60000
         run: |
           cd src
           python scraper.py

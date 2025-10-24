@@ -20,6 +20,8 @@ from config import (
     MAX_PAGES_TO_SCRAPE,
     RESULTS_PER_PAGE,
     DATA_DIR,
+    PAGE_LOAD_TIMEOUT,
+    PDF_DOWNLOAD_TIMEOUT,
     validate_config
 )
 from s3_uploader import S3Uploader
@@ -164,8 +166,8 @@ class ArretesScraper:
             logger.debug(f"Navigation vers {viewer_url}")
 
             # Attendre le téléchargement du PDF
-            async with page.expect_download(timeout=30000) as download_info:
-                await page.goto(viewer_url, wait_until='networkidle', timeout=30000)
+            async with page.expect_download(timeout=PDF_DOWNLOAD_TIMEOUT) as download_info:
+                await page.goto(viewer_url, wait_until='networkidle', timeout=PDF_DOWNLOAD_TIMEOUT)
 
                 # Chercher un lien de téléchargement ou un iframe contenant le PDF
                 # Option 1: Chercher un bouton/lien de téléchargement
@@ -193,7 +195,7 @@ class ArretesScraper:
             # Si pas de téléchargement automatique, essayer une approche différente
             try:
                 # Chercher toutes les requêtes réseau pour des PDFs
-                await page.goto(viewer_url, wait_until='networkidle', timeout=30000)
+                await page.goto(viewer_url, wait_until='networkidle', timeout=PDF_DOWNLOAD_TIMEOUT)
                 await asyncio.sleep(2)  # Attendre que la page charge complètement
 
                 # Essayer de trouver le PDF dans le contenu de la page
@@ -276,7 +278,7 @@ class ArretesScraper:
             url = await self._get_search_page_url(page_num)
             logger.info(f"Scraping de la page {page_num}: {url}")
 
-            await page.goto(url, wait_until='networkidle', timeout=60000)
+            await page.goto(url, wait_until='networkidle', timeout=PAGE_LOAD_TIMEOUT)
             await asyncio.sleep(SCRAPE_DELAY_SECONDS)
 
             # Parser le HTML

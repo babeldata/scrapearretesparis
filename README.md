@@ -227,6 +227,17 @@ Le site BOVP est lent. Les délais par défaut sont :
 
 Vous pouvez augmenter ces valeurs si vous rencontrez des timeouts.
 
+### Ajuster les timeouts
+
+Si le site est très lent ou que vous rencontrez des timeouts, augmentez ces valeurs (en millisecondes) :
+
+```bash
+export PAGE_LOAD_TIMEOUT=120000  # 120 secondes pour charger une page (défaut: 90s)
+export PDF_DOWNLOAD_TIMEOUT=90000  # 90 secondes pour télécharger un PDF (défaut: 60s)
+```
+
+Ces timeouts contrôlent combien de temps Playwright attend avant d'abandonner une opération.
+
 ### Logs
 
 Les logs sont disponibles :
