@@ -96,6 +96,8 @@ Dans votre repository GitHub, aller dans `Settings > Secrets and variables > Act
 
 ## 💻 Utilisation
 
+> 📖 **Guide complet de test** : Consultez [TESTING.md](TESTING.md) pour un guide détaillé des différentes méthodes de test
+
 ### Exécution manuelle
 
 ```bash
@@ -124,7 +126,28 @@ Le mode DRY_RUN :
 
 Le GitHub Action s'exécute automatiquement tous les jours à 6h du matin (heure de Paris).
 
-Vous pouvez aussi lancer manuellement l'action depuis l'interface GitHub :
+### Test avec GitHub Actions (mode dry-run)
+
+Pour tester le scraper sans uploader vers S3 :
+
+1. Allez dans l'onglet **Actions** de votre repo GitHub
+2. Sélectionnez **"Test Scraper (Dry Run)"** dans la liste des workflows
+3. Cliquez sur **"Run workflow"**
+4. Configurez les paramètres :
+   - **max_pages** : `1` (nombre de pages à scraper)
+   - **dry_run** : `true` (pas d'upload S3 réel)
+   - **max_concurrent** : `3` (pages en parallèle)
+5. Cliquez sur **"Run workflow"** (bouton vert)
+
+Le workflow va :
+- ✅ Scraper 1 page de résultats
+- ✅ Simuler l'upload des PDFs (pas d'upload réel)
+- ✅ Afficher un résumé dans l'interface GitHub
+- ✅ Uploader les logs et le CSV comme artefacts (téléchargeables pendant 7 jours)
+
+### Lancement manuel du scraping complet
+
+Vous pouvez aussi lancer manuellement le scraping complet depuis l'interface GitHub :
 1. Aller dans l'onglet `Actions`
 2. Sélectionner `Daily Scrape of Paris Arrêtés`
 3. Cliquer sur `Run workflow`

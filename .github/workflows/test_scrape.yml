@@ -1,0 +1,107 @@
+name: Test Scraper (Dry Run)
+
+on:
+  # Uniquement lancement manuel
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Nombre de pages à scraper (0 = toutes)'
+        required: false
+        default: '1'
+        type: string
+      dry_run:
+        description: 'Mode DRY_RUN (pas d\'upload S3 réel)'
+        required: false
+        default: true
+        type: boolean
+      max_concurrent:
+        description: 'Nombre de pages en parallèle'
+        required: false
+        default: '3'
+        type: string
+
+jobs:
+  test-scrape:
+    runs-on: ubuntu-latest
+    # Décommentez si vous utilisez un environment de test
+    # environment: staging
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Installer les navigateurs Playwright
+          playwright install chromium
+          playwright install-deps
+
+      - name: Run scraper in test mode
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          SCRAPE_DELAY_SECONDS: 2
+          MAX_CONCURRENT_PAGES: ${{ inputs.max_concurrent }}
+          MAX_PAGES_TO_SCRAPE: ${{ inputs.max_pages }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "🧪 Mode de test activé"
+          echo "  - DRY_RUN: $DRY_RUN"
+          echo "  - MAX_PAGES_TO_SCRAPE: $MAX_PAGES_TO_SCRAPE"
+          echo "  - MAX_CONCURRENT_PAGES: $MAX_CONCURRENT_PAGES"
+          cd src
+          python scraper.py
+
+      - name: Show CSV results
+        run: |
+          echo "📊 Résultats du CSV:"
+          if [ -f data/arretes.csv ]; then
+            wc -l data/arretes.csv
+            echo "Aperçu des premières lignes:"
+            head -n 5 data/arretes.csv
+          else
+            echo "❌ Aucun fichier CSV créé"
+          fi
+
+      - name: Upload logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-scraper-logs-${{ github.run_number }}
+          path: src/scraper.log
+          retention-days: 7
+
+      - name: Upload CSV as artifact (for inspection)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-csv-${{ github.run_number }}
+          path: data/arretes.csv
+          retention-days: 7
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- DRY_RUN: \`${{ inputs.dry_run }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Pages scrapées: \`${{ inputs.max_pages }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Parallélisation: \`${{ inputs.max_concurrent }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f data/arretes.csv ]; then
+            LINES=$(wc -l < data/arretes.csv)
+            echo "**Résultats:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Lignes dans le CSV: \`$LINES\`" >> $GITHUB_STEP_SUMMARY
+          fi
