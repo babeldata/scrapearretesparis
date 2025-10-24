@@ -413,11 +413,13 @@ class ArretesScraper:
                     total_pages = min(total_pages, MAX_PAGES_TO_SCRAPE)
                     logger.info(f"Limitation à {total_pages} pages")
 
-                # Scraper toutes les pages pour récupérer les métadonnées
-                all_arretes_metadata = []
+                # Scraper et traiter page par page (sauvegarde incrémentale)
+                total_arretes_traites = 0
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
+
                 for page_num in range(1, total_pages + 1):
+                    # 1. Scraper les métadonnées de cette page
                     page_metadata = await self._scrape_page(page, page_num)
-                    all_arretes_metadata.extend(page_metadata)
 
                     # Si aucun nouvel arrêté sur cette page, on peut arrêter
                     # (car les résultats sont triés par date décroissante)
@@ -425,32 +427,28 @@ class ArretesScraper:
                         logger.info(f"Aucun nouvel arrêté sur la page {page_num}, arrêt du scraping")
                         break
 
-                logger.info(f"Total de nouveaux arrêtés à traiter: {len(all_arretes_metadata)}")
+                    # 2. Traiter immédiatement les PDFs de cette page
+                    async def process_with_semaphore(metadata):
+                        async with semaphore:
+                            pdf_page = await context.new_page()
+                            try:
+                                await self._process_arrete(pdf_page, metadata)
+                            finally:
+                                await pdf_page.close()
+                            await asyncio.sleep(SCRAPE_DELAY_SECONDS)
 
-                if not all_arretes_metadata:
-                    logger.info("Aucun nouvel arrêté à traiter")
-                    return
+                    tasks = [process_with_semaphore(m) for m in page_metadata]
+                    await asyncio.gather(*tasks)
 
-                # Traiter les arrêtés (téléchargement PDF + upload S3)
-                # On crée plusieurs pages en parallèle pour aller plus vite
-                semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
+                    # 3. Sauvegarder le CSV après chaque page (sauvegarde incrémentale)
+                    if self.new_arretes:
+                        await self._save_to_csv()
+                        total_arretes_traites += len(page_metadata)
+                        logger.info(f"💾 Progression: {total_arretes_traites} arrêtés traités, CSV sauvegardé")
+                        # Réinitialiser la liste pour la prochaine page
+                        self.new_arretes = []
 
-                async def process_with_semaphore(metadata):
-                    async with semaphore:
-                        page = await context.new_page()
-                        try:
-                            await self._process_arrete(page, metadata)
-                        finally:
-                            await page.close()
-                        await asyncio.sleep(SCRAPE_DELAY_SECONDS)
-
-                tasks = [process_with_semaphore(m) for m in all_arretes_metadata]
-                await asyncio.gather(*tasks)
-
-                # Sauvegarder les nouveaux arrêtés dans le CSV
-                await self._save_to_csv()
-
-                logger.info(f"=== Scraping terminé: {len(self.new_arretes)} nouveaux arrêtés ajoutés ===")
+                logger.info(f"=== Scraping terminé: {total_arretes_traites} nouveaux arrêtés ajoutés ===")
 
         except Exception as e:
             logger.error(f"Erreur critique dans le scraper: {e}")
