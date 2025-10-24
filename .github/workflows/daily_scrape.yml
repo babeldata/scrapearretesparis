@@ -38,6 +38,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
           SCRAPE_DELAY_SECONDS: 2
           MAX_CONCURRENT_PAGES: 5
           MAX_PAGES_TO_SCRAPE: 0  # 0 = toutes les pages

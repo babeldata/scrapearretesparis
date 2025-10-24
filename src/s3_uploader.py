@@ -11,6 +11,7 @@ from config import (
     AWS_SECRET_ACCESS_KEY,
     AWS_REGION,
     S3_BUCKET_NAME,
+    S3_ENDPOINT_URL,
     DRY_RUN
 )
 
@@ -21,17 +22,27 @@ class S3Uploader:
     """Classe pour gérer l'upload des PDFs vers S3."""
 
     def __init__(self):
-        """Initialise le client S3."""
+        """Initialise le client S3 ou MinIO."""
         self.dry_run = DRY_RUN
         self.bucket_name = S3_BUCKET_NAME or "dry-run-bucket"
+        self.endpoint_url = S3_ENDPOINT_URL
 
         if not self.dry_run:
-            self.s3_client = boto3.client(
-                's3',
-                aws_access_key_id=AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                region_name=AWS_REGION
-            )
+            # Configuration du client S3/MinIO
+            client_config = {
+                'aws_access_key_id': AWS_ACCESS_KEY_ID,
+                'aws_secret_access_key': AWS_SECRET_ACCESS_KEY,
+                'region_name': AWS_REGION
+            }
+
+            # Ajouter l'endpoint_url si spécifié (pour MinIO ou S3 compatible)
+            if self.endpoint_url:
+                client_config['endpoint_url'] = self.endpoint_url
+                logger.info(f"Utilisation de l'endpoint S3 personnalisé: {self.endpoint_url}")
+            else:
+                logger.info("Utilisation d'AWS S3")
+
+            self.s3_client = boto3.client('s3', **client_config)
         else:
             self.s3_client = None
             logger.info("Mode DRY_RUN activé: aucun upload S3 ne sera effectué")

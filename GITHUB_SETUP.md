@@ -21,14 +21,15 @@ Ce document explique les différentes façons de configurer les secrets pour le 
 1. Allez sur votre repository GitHub
 2. `Settings` → `Secrets and variables` → `Actions` → `Repository secrets`
 3. Cliquez sur `New repository secret`
-4. Ajoutez les 4 secrets :
+4. Ajoutez les 5 secrets :
 
 | Nom du secret | Exemple de valeur | Description |
 |---------------|-------------------|-------------|
-| `AWS_ACCESS_KEY_ID` | `AKIAIOSFODNN7EXAMPLE` | Clé d'accès AWS |
-| `AWS_SECRET_ACCESS_KEY` | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` | Clé secrète AWS |
-| `AWS_REGION` | `eu-west-3` | Région du bucket S3 (Paris) |
-| `S3_BUCKET_NAME` | `paris-arretes-prod` | Nom du bucket S3 |
+| `AWS_ACCESS_KEY_ID` | `AKIAIOSFODNN7EXAMPLE` | Clé d'accès AWS/MinIO |
+| `AWS_SECRET_ACCESS_KEY` | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` | Clé secrète AWS/MinIO |
+| `AWS_REGION` | `us-east-1` | Région (us-east-1 pour MinIO) |
+| `S3_BUCKET_NAME` | `paris-arretes-prod` | Nom du bucket S3/MinIO |
+| `S3_ENDPOINT_URL` | `https://minio.example.com` | Endpoint personnalisé (MinIO). Laisser vide pour AWS S3 |
 
 ✅ **C'est tout !** Le workflow va automatiquement utiliser ces secrets.
 
@@ -66,8 +67,9 @@ Dans l'environment `production`, section `Environment secrets` :
 |---------------|-------------------|
 | `AWS_ACCESS_KEY_ID` | `AKIAIOSFODNN7EXAMPLE` |
 | `AWS_SECRET_ACCESS_KEY` | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
-| `AWS_REGION` | `eu-west-3` |
+| `AWS_REGION` | `us-east-1` |
 | `S3_BUCKET_NAME` | `paris-arretes-prod` |
+| `S3_ENDPOINT_URL` | `https://minio.example.com` (laisser vide pour AWS S3) |
 
 #### Étape 3 : (Optionnel) Configurer les protections
 

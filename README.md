@@ -55,11 +55,16 @@ cp .env.example .env
 Éditer `.env` :
 
 ```bash
-# Configuration S3 pour le stockage des PDFs
+# Configuration S3 / MinIO pour le stockage des PDFs
 AWS_ACCESS_KEY_ID=your_access_key_here
 AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_REGION=eu-west-3
+AWS_REGION=us-east-1
 S3_BUCKET_NAME=your_bucket_name_here
+
+# Pour MinIO ou autre S3-compatible: spécifier l'URL
+# Exemples: http://localhost:9000 ou https://minio.example.com
+# Laisser vide pour AWS S3 standard
+S3_ENDPOINT_URL=https://minio.example.com
 
 # Configuration du scraper
 SCRAPE_DELAY_SECONDS=2
@@ -77,14 +82,17 @@ Dans votre repository GitHub, aller dans `Settings > Secrets and variables > Act
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
 - `S3_BUCKET_NAME`
+- `S3_ENDPOINT_URL` (laisser vide pour AWS S3, ou votre URL MinIO, ex: `https://minio.example.com`)
 
 **Option B - Créer un Environment (recommandé pour la production)** :
 
 1. Dans votre repository : `Settings > Environments > New environment`
 2. Nommez-le `production`
-3. Ajoutez les mêmes secrets dans cet environnement
+3. Ajoutez les mêmes 5 secrets dans cet environnement
 4. Dans `.github/workflows/daily_scrape.yml`, décommentez la ligne `# environment: production`
 5. (Optionnel) Configurez des protections : approbation manuelle, restrictions de branches, etc.
+
+**Note pour MinIO** : Le scraper supporte nativement MinIO et autres services compatibles S3. Il suffit de spécifier votre endpoint dans `S3_ENDPOINT_URL`. Consultez [MINIO_SETUP.md](MINIO_SETUP.md) pour un guide complet de configuration MinIO.
 
 ## 💻 Utilisation
 
