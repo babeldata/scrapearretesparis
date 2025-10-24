@@ -212,6 +212,24 @@ jobs:
 
 **Explication** : Playwright n'est pas encore totalement compatible avec Ubuntu 24.04. Les paquets système `libasound2`, `libffi7` et `libx264-163` ont été renommés ou supprimés dans cette version.
 
+### Erreur lxml : "Please make sure the libxml2 and libxslt development packages are installed"
+
+**Cause** : La bibliothèque `lxml` nécessite des dépendances système pour être compilée
+
+**Solution** : Ce problème est déjà corrigé dans les workflows (on installe `libxml2-dev` et `libxslt-dev`)
+
+Si vous rencontrez cette erreur en local :
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y libxml2-dev libxslt-dev
+
+# macOS
+brew install libxml2 libxslt
+
+# Puis réinstaller les dépendances Python
+pip install -r requirements.txt
+```
+
 ### TimeoutError sur le téléchargement PDF
 
 **Cause** : Le site BOVP est lent ou le PDF n'est pas accessible
