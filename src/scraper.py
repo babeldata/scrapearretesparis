@@ -196,71 +196,34 @@ class ArretesScraper:
 
     async def _download_pdf(self, page: Page, explnum_id: str) -> Optional[bytes]:
         """
-        Télécharge le PDF en utilisant Playwright.
+        Télécharge le PDF directement depuis doc_num_data.php.
 
-        Cette fonction navigue vers la page de visionneuse et tente de récupérer le PDF.
+        Args:
+            page: Page Playwright (utilisée pour faire la requête HTTP)
+            explnum_id: ID du document numérique
+
+        Returns:
+            Contenu binaire du PDF ou None si échec
         """
         try:
-            # URL de la visionneuse
-            viewer_url = f"{BASE_URL}/visionneuse.php?mode=segment&explnum_id={explnum_id}"
+            # URL directe du PDF
+            pdf_url = f"{BASE_URL}/doc_num_data.php?explnum_id={explnum_id}"
+            logger.debug(f"Téléchargement PDF depuis: {pdf_url}")
 
-            logger.debug(f"Navigation vers {viewer_url}")
+            # Télécharger directement via une requête HTTP
+            response = await page.request.get(pdf_url, timeout=PDF_DOWNLOAD_TIMEOUT)
 
-            # Attendre le téléchargement du PDF
-            async with page.expect_download(timeout=PDF_DOWNLOAD_TIMEOUT) as download_info:
-                await page.goto(viewer_url, wait_until='domcontentloaded', timeout=PDF_DOWNLOAD_TIMEOUT)
-
-                # Chercher un lien de téléchargement ou un iframe contenant le PDF
-                # Option 1: Chercher un bouton/lien de téléchargement
-                download_link = await page.query_selector('a[href*=".pdf"], a[download]')
-                if download_link:
-                    await download_link.click()
-
-                # Option 2: Chercher un iframe avec un PDF
-                iframe = await page.query_selector('iframe[src*=".pdf"]')
-                if iframe:
-                    pdf_url = await iframe.get_attribute('src')
-                    if pdf_url:
-                        if not pdf_url.startswith('http'):
-                            pdf_url = BASE_URL + '/' + pdf_url.lstrip('/')
-
-                        # Télécharger directement via une nouvelle page
-                        response = await page.request.get(pdf_url)
-                        if response.ok:
-                            return await response.body()
-
-            download = await download_info.value
-            return await download.path().read_bytes()
-
-        except PlaywrightTimeout:
-            # Si pas de téléchargement automatique, essayer une approche différente
-            try:
-                # Chercher toutes les requêtes réseau pour des PDFs
-                await page.goto(viewer_url, wait_until='domcontentloaded', timeout=PDF_DOWNLOAD_TIMEOUT)
-                await asyncio.sleep(2)  # Attendre que la page charge complètement
-
-                # Essayer de trouver le PDF dans le contenu de la page
-                content = await page.content()
-                soup = BeautifulSoup(content, 'lxml')
-
-                # Chercher des liens vers des PDFs
-                pdf_links = soup.find_all('a', href=re.compile(r'\.pdf|doc_num|explnum'))
-                for link in pdf_links:
-                    href = link.get('href')
-                    if href:
-                        if not href.startswith('http'):
-                            href = BASE_URL + '/' + href.lstrip('/')
-
-                        logger.debug(f"Tentative de téléchargement depuis {href}")
-                        response = await page.request.get(href)
-                        if response.ok and 'application/pdf' in response.headers.get('content-type', ''):
-                            return await response.body()
-
-                logger.warning(f"Aucun PDF trouvé pour explnum_id={explnum_id}")
-                return None
-
-            except Exception as e:
-                logger.error(f"Erreur lors du téléchargement du PDF {explnum_id}: {e}")
+            if response.ok:
+                content_type = response.headers.get('content-type', '')
+                if 'application/pdf' in content_type or 'application/octet-stream' in content_type:
+                    pdf_content = await response.body()
+                    logger.debug(f"✓ PDF téléchargé: {len(pdf_content)} octets")
+                    return pdf_content
+                else:
+                    logger.warning(f"Type de contenu inattendu pour {explnum_id}: {content_type}")
+                    return None
+            else:
+                logger.warning(f"Échec HTTP {response.status} pour explnum_id={explnum_id}")
                 return None
 
         except Exception as e:
