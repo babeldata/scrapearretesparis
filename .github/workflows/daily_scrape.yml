@@ -66,9 +66,24 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          git add data/arretes.csv
-          # Ne commit que si le fichier a changé
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update arrêtés data - $(date +'%Y-%m-%d')" && git push)
+
+          # Vérifier s'il y a des changements dans le CSV
+          if [ -f data/arretes.csv ]; then
+            git add data/arretes.csv
+
+            # Vérifier s'il y a quelque chose à commiter
+            if git diff --staged --quiet; then
+              echo "✓ Aucun nouveau arrêté - CSV inchangé"
+              exit 0
+            else
+              echo "✓ Nouveaux arrêtés détectés - Commit et push du CSV"
+              git commit -m "Update arrêtés data - $(date +'%Y-%m-%d')"
+              git push
+            fi
+          else
+            echo "✓ Aucun CSV généré - Probablement aucun nouvel arrêté"
+            exit 0
+          fi
 
       - name: Upload logs as artifact
         if: always()

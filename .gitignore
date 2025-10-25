@@ -30,3 +30,6 @@ playwright/.local-browsers/
 
 # Logs
 *.log
+
+# Debug files
+data/debug_page_*.html
