@@ -1,1 +1,1 @@
-numero_arrete,titre,autorite_responsable,signataire,date_publication,date_signature,poids_pdf_ko,explnum_id,pdf_s3_url,date_scrape
+numero_arrete,titre,autorite_responsable,signataire,date_publication,date_signature,poids_pdf_ko,concerne_circulation,concerne_stationnement,est_temporaire,explnum_id,pdf_s3_url,date_scrape
