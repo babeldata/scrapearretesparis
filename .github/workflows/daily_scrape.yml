@@ -14,6 +14,10 @@ jobs:
     # OPTION 2: Décommentez la ligne suivante si vous créez un environment "production"
     # environment: production
 
+    # Permissions nécessaires pour commit et push
+    permissions:
+      contents: write  # Permet de push le CSV mis à jour
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

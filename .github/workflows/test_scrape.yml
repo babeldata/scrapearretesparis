@@ -26,6 +26,10 @@ jobs:
     # Décommentez si vous utilisez un environment de test
     # environment: staging
 
+    # Permissions (pour cohérence avec daily_scrape)
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
