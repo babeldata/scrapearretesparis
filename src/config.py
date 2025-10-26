@@ -69,6 +69,16 @@ def classify_arrete(titre: str) -> dict:
     """
     titre_lower = titre.lower()
 
+    # Cas spécial : "stationnement gênant la circulation" est un arrêté de stationnement UNIQUEMENT
+    # Il ne s'agit pas d'un arrêté de circulation, mais d'un arrêté interdisant le stationnement
+    # pour ne pas gêner la circulation
+    if 'stationnement gênant' in titre_lower or 'stationnement génant' in titre_lower:
+        return {
+            'concerne_circulation': False,
+            'concerne_stationnement': True,
+            'est_temporaire': 'à titre provisoire' in titre_lower or 'provisoire' in titre_lower or 'temporaire' in titre_lower
+        }
+
     # Mots-clés pour la circulation
     mots_circulation = [
         'circulation',
