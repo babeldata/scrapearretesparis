@@ -85,7 +85,6 @@ def classify_arrete(titre: str) -> dict:
     # Mots-clés pour le stationnement
     mots_stationnement = [
         'stationnement',
-        'arrêt',
         'parking',
         'zone bleue',
         'livraison',
