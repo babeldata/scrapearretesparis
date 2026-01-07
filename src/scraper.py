@@ -132,33 +132,61 @@ class ArretesScraper:
                 'date_scrape': datetime.now().isoformat()
             }
 
-            # D'abord chercher l'explnum_id dans le h3 lui-même
+            # D'abord chercher l'explnum_id dans l'élément de titre lui-même
             # Pattern: open_visionneuse(sendToVisionneuse,44443)
-            h3_links = h3_element.find_all('a')
-            for link in h3_links:
+            # Support multiple patterns for resilience
+            heading_links = h3_element.find_all('a')
+            for link in heading_links:
                 onclick = link.get('onclick', '')
-                if 'open_visionneuse' in onclick or 'sendToVisionneuse' in onclick:
-                    # Chercher le nombre après sendToVisionneuse,
-                    explnum_match = re.search(r'sendToVisionneuse,(\d+)', onclick)
-                    if explnum_match:
-                        metadata['explnum_id'] = explnum_match.group(1)
-                        logger.debug(f"✓ explnum_id trouvé dans h3: {metadata['explnum_id']}")
-                        break
+                href = link.get('href', '')
 
-            # Les métadonnées ne sont pas siblings directs du h3, mais dans le conteneur parent
-            # Remonter au conteneur parent (div.descr_notice_corps ou div.notice_corps)
+                # Try multiple patterns for explnum_id extraction
+                patterns = [
+                    (r'sendToVisionneuse[,\s]+(\d+)', 'sendToVisionneuse'),
+                    (r'open_visionneuse[^\d]*(\d+)', 'open_visionneuse'),
+                    (r'openDocument[^\d]*(\d+)', 'openDocument'),
+                    (r'viewDocument[^\d]*(\d+)', 'viewDocument'),
+                    (r'showPDF[^\d]*(\d+)', 'showPDF'),
+                    (r'explnum[_-]?id[^\d]*(\d+)', 'explnum_id'),
+                ]
+
+                for pattern, pattern_name in patterns:
+                    # Try onclick attribute
+                    if onclick:
+                        explnum_match = re.search(pattern, onclick, re.IGNORECASE)
+                        if explnum_match:
+                            metadata['explnum_id'] = explnum_match.group(1)
+                            logger.debug(f"✓ explnum_id trouvé dans onclick via {pattern_name}: {metadata['explnum_id']}")
+                            break
+                    # Try href attribute
+                    if href and not metadata['explnum_id']:
+                        explnum_match = re.search(pattern, href, re.IGNORECASE)
+                        if explnum_match:
+                            metadata['explnum_id'] = explnum_match.group(1)
+                            logger.debug(f"✓ explnum_id trouvé dans href via {pattern_name}: {metadata['explnum_id']}")
+                            break
+
+                if metadata['explnum_id']:
+                    break
+
+            # Les métadonnées ne sont pas siblings directs du heading, mais dans le conteneur parent
+            # Remonter au conteneur parent (div avec classes comme descr_notice_corps, notice_corps, etc.)
             parent = h3_element.parent
             while parent:
                 if parent.name == 'div':
                     classes = parent.get('class', [])
-                    if 'descr_notice_corps' in classes or 'notice_corps' in classes:
-                        break
+                    if classes:
+                        # Use regex pattern matching for more resilience
+                        classes_str = ' '.join(classes)
+                        if re.search(r'(descr_)?notice(_corps)?|result|item', classes_str, re.IGNORECASE):
+                            break
                 parent = parent.parent
 
             # Si on a trouvé le bon parent, chercher dans ses descendants
             if parent:
-                # 1. Chercher autorité responsable et signataire dans <span class="auteur_notCourte">
-                auteur_spans = parent.find_all('span', class_='auteur_notCourte')
+                # 1. Chercher autorité responsable et signataire dans <span> avec classe contenant "auteur"
+                # Use regex pattern for more resilience
+                auteur_spans = parent.find_all('span', class_=re.compile(r'auteur.*|author.*|signataire.*', re.IGNORECASE))
                 if auteur_spans and len(auteur_spans) >= 1:
                     # Le premier span est l'autorité responsable
                     metadata['autorite_responsable'] = auteur_spans[0].get_text(strip=True).replace('\xa0', ' ')
@@ -166,13 +194,15 @@ class ArretesScraper:
                     if len(auteur_spans) >= 2:
                         metadata['signataire'] = auteur_spans[1].get_text(strip=True).replace('\xa0', ' ')
 
-                # 2. Chercher les dates et poids dans <table class="descr_notice">
-                table = parent.find('table', class_='descr_notice')
+                # 2. Chercher les dates et poids dans <table> avec classe contenant "notice" ou "descr"
+                # Use regex pattern for more resilience
+                table = parent.find('table', class_=re.compile(r'descr.*|notice.*|metadata.*|info.*', re.IGNORECASE))
                 if table:
-                    rows = table.find_all('tr', class_='record_p_perso')
+                    rows = table.find_all('tr', class_=re.compile(r'record.*|row.*|p_perso.*', re.IGNORECASE))
                     for row in rows:
-                        label = row.find('td', class_='labelNot')
-                        content = row.find('td', class_='labelContent')
+                        # Try to find label and content cells with flexible class matching
+                        label = row.find('td', class_=re.compile(r'label.*|key.*', re.IGNORECASE))
+                        content = row.find('td', class_=re.compile(r'.*content.*|value.*', re.IGNORECASE))
                         if label and content:
                             label_text = label.get_text(strip=True)
                             content_text = content.get_text(strip=True)
@@ -297,15 +327,16 @@ class ArretesScraper:
                 logger.info(f"HTML sauvegardé dans {debug_file} pour debug")
 
             # Le site BOVP n'utilise pas de divs conteneurs avec classes CSS
-            # Les résultats sont identifiés par des <h3> contenant "Arrêté n°"
-            h3_elements = soup.find_all('h3')
-            arrete_h3s = [h3 for h3 in h3_elements if h3.get_text() and 'Arrêté n°' in h3.get_text()]
+            # Les résultats sont identifiés par des éléments de titre (h2/h3/h4) contenant "Arrêté n°"
+            # Support multiple heading levels for resilience
+            heading_elements = soup.find_all(['h2', 'h3', 'h4'])
+            arrete_headings = [h for h in heading_elements if h.get_text() and 'Arrêté n°' in h.get_text()]
 
-            logger.info(f"Page {page_num}: {len(arrete_h3s)} résultats trouvés (via <h3> 'Arrêté n°')")
+            logger.info(f"Page {page_num}: {len(arrete_headings)} résultats trouvés (via <h2/h3/h4> 'Arrêté n°')")
 
             arretes_metadata = []
-            for h3 in arrete_h3s:
-                metadata = await self._parse_arrete_from_h3(h3)
+            for heading in arrete_headings:
+                metadata = await self._parse_arrete_from_h3(heading)
                 if metadata:
                     arretes_metadata.append(metadata)
 
